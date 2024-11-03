@@ -3,54 +3,49 @@ import github from "@actions/github";
 import fetch from "node-fetch";
 import {
   createCommit,
-  loadTemplate,
-  parseTemplate,
-  stringOrFalse,
   stringToBoolean,
 } from "./api.js";
 
-const templateName = core.getInput("template") || "plain";
-const template = await loadTemplate(templateName);
-
-const message = core.getInput("message") || template.message;
+// Haal inputs op
 const webhook = core.getInput("webhook");
 const lastCommitOnly = stringToBoolean(core.getInput("last-commit-only"));
-const extraEmbeds = stringToBoolean(core.getInput("include-extras"))
-  ? template.extras || []
-  : [];
 
-const embed =
-  stringOrFalse(core.getInput("embed")) || JSON.stringify(template.embed);
-
-const DATA = {
-  env: { ...process.env },
-  github: { ...github },
-};
-// console.log(github.context.payload.commits);
+// Verkrijg de commits; beperk tot de laatste als dat gespecificeerd is
+let commits = github.context.payload.commits;
 if (lastCommitOnly) {
-  github.context.payload.commits = github.context.payload.commits.slice(-1);
+  commits = commits.slice(-1);
 }
 
-let embeds = github.context.payload.commits.map((commit) => {
-  const titledCommmit = createCommit(commit);
-  return parseTemplate(
-    {
-      ...DATA,
-      commit: titledCommmit,
-    },
-    JSON.parse(embed)
-  );
+// Bouw de embeds op
+let embeds = [];
+
+// Hoofdembed met repo-informatie
+embeds.push({
+  title: "ParadoxRoleplay",
+  description: `Aantal commits: ${commits.length}`,
+  color: 3447003, // Kies een kleur naar wens in hexadecimale notatie
 });
-embeds = embeds.concat(extraEmbeds.map((embed) => parseTemplate(DATA, embed)));
-console.log(embeds);
+
+// Voeg een embed toe voor elke commit
+commits.forEach((commit) => {
+  embeds.push({
+    description: commit.message, // De commit message
+    footer: {
+      text: `Auteur: ${commit.author.name}`,
+      icon_url: commit.author.avatar_url, // Auteur's avatar
+    },
+    color: 16777215, // Wit of een andere kleur naar wens
+  });
+});
+
+// Payload voor de webhook
 const payload = {
-  content: parseTemplate(DATA, message),
-  embeds: embeds.filter((x) => x),
+  embeds: embeds,
 };
 
 try {
   const webhookURL = new URL(webhook);
-  webhookURL.searchParams.set('wait','true');
+  webhookURL.searchParams.set('wait', 'true');
   await fetch(webhookURL.toString(), {
     method: "POST",
     headers: {
@@ -62,5 +57,5 @@ try {
 } catch (err) {
   console.error(err);
   core.error(err);
-  core.setFailed("Message :", err.response ? err.response.data : err.message);
+  core.setFailed("Fout tijdens versturen van het bericht: ", err.response ? err.response.data : err.message);
 }
