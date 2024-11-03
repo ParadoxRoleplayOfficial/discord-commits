@@ -4,10 +4,10 @@
  */
 
 export default {
-    message: "Successful commit to **{{ github.context.payload.repository.owner.name }}/{{ github.context.payload.repository.name}}**",
+    message: "Er zijn weer aanpassingen",
     embed: {
-        title: "{{ commit.title }}",
-        description: "{{ commit.description }}",
+        title: "test",
+        description: "{{ commit.title }}",
         author: {
             name: "{{ commit.author.name }}"
         }
